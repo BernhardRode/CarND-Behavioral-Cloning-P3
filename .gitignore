@@ -1,0 +1,8 @@
+recordings
+run1
+run2
+run3
+model-*
+model.h5
+model.cp.h5
+model.json
