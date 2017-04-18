@@ -16,46 +16,47 @@ DATASETS = {
         'udacity': True,
     },
     'track_02': {
-        'safety_lap_001': False,
-        'safety_lap_002': False,
-        'reverse_lap_001': False
+        'safety_lap_001': True,
+        'safety_lap_002': True,
+        'reverse_lap_001': True
     }
 }
-STEERING_CORRECTION = 0.18
-TEST_SIZE = 0.2
+VERBOSE = 1
 VALIDATION_SPLIT = 0.2
-BATCH_SIZE = 32
+TEST_SIZE = 0.2
+STEERING_CORRECTION = 0.2
+LEARNING_RATE = 1e-4
 IMAGE_SIZE = (160, 320, 3)
+EPOCHS = 20 # can be quiet big, as we stop early, when model performs good enough
+EARLY_STOPPING_PATIENCE = 1
+EARLY_STOPPING_DELTA = 0.0001
 CROPPING_TB = (70, 15)
 CROPPING_LR = (0, 0)
-EPOCHS = 50 # can be big, as we stop early, when network performs well enough
-EARLY_STOPPING_DELTA = 0.0001
-EARLY_STOPPING_PATIENCE = 1
-VERBOSE = 1
-LEARNING_RATE = 1e-4
+BATCH_SIZE = 32
 
 ################################
 # DO NOT CHANGE ANYTHING BELOW
 ################################
 
-import os
-import csv
 import time
-import json
-import math
-import cv2
 import random
+import os
 import numpy as np
+import math
+import json
+import cv2
+import csv
 
 import sklearn
 from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
 
+from keras.optimizers import Adam
 from keras.models import Sequential
-from keras.layers.core import Dense, Flatten, Lambda, Activation, Dropout
-from keras.layers.convolutional import Conv2D, Cropping2D
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.normalization import BatchNormalization
+from keras.layers.core import Dense, Flatten, Lambda, Activation, Dropout
+from keras.layers.convolutional import Conv2D, Cropping2D
 from keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
 
 # set start time
@@ -65,16 +66,16 @@ start = time.time()
 # Setup useful helper functions
 #
 SAMPLES = []
-def read_image(img):
-    img = cv2.imread(img)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+def read_image(path):
+    img = cv2.imread(path)
+    # img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
     return img
 
 def lambda_read_image(path):
     return lambda : read_image(path)
 
 def lambda_read_image_flipped(path):
-    return lambda : np.fliplr(read_image(path))
+    return lambda : cv2.flip(read_image(path), 1)
 #
 # Read Drive Log and prepare samples
 #
@@ -116,13 +117,13 @@ for track in DATASETS:
                         'speed': speed, 
                         'throttle': throttle
                     })
-                    # SAMPLES.append({
-                    #     'lambda_image': lambda_read_image_flipped(center), 
-                    #     'steering': -steering, 
-                    #     'brake': brake,
-                    #     'speed': speed, 
-                    #     'throttle': throttle
-                    # })
+                    SAMPLES.append({
+                        'lambda_image': lambda_read_image_flipped(center), 
+                        'steering': -steering, 
+                        'brake': brake,
+                        'speed': speed, 
+                        'throttle': throttle
+                    })
 
 print('Number of samples:', len(SAMPLES))
 
@@ -186,6 +187,7 @@ model.add(Lambda(lambda x: (x / 255.0) - 0.5))
 
 # NVidia architecture
 # https://devblogs.nvidia.com/parallelforall/deep-learning-self-driving-cars/
+# Nvidia(model)
 model.add(BatchNormalization(axis=1, name="Normalise"))
 model.add(Conv2D(24, (3, 3), strides=(2,2), name="Conv1", activation="relu"))
 model.add(MaxPooling2D(name="MaxPool1"))
