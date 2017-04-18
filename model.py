@@ -32,6 +32,7 @@ EPOCHS = 50 # can be big, as we stop early, when network performs well enough
 EARLY_STOPPING_DELTA = 0.0001
 EARLY_STOPPING_PATIENCE = 1
 VERBOSE = 1
+LEARNING_RATE = 1e-4
 
 ################################
 # DO NOT CHANGE ANYTHING BELOW
@@ -212,8 +213,8 @@ model.add(Dense(1, name="Steering", activation='linear'))
 
 #
 # COMPILE
-#
-model.compile(loss='mse', optimizer='adam')
+adam = Adam(lr=LEARNING_RATE, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+model.compile(optimizer=adam, loss='mse')
 
 #
 # Values
