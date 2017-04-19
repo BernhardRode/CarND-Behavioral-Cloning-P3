@@ -3,28 +3,33 @@
 ################################
 
 DATASETS = {
-    'track_01': {
-        'fast_lap_001': True,
+    'track_01_hd': {
+        'reverse_lap_001': False,
         'safety_lap_001': False,
         'safety_lap_002': False,
-        'safety_lap_003': True,
-        'safety_lap_004': True,
-        'multiple_drives': False,
-        'bridge_exit_001': True,
-        'reverse_lap_001': True,
-        'poc': False,
-        'udacity': True,
+        'safety_lap_003': False,
+        'recovery_lap_001': False
+    },
+    'track_01': {
+        'reverse_lap': True,
+        'safety_laps': True,
+        'udacity': True
+    },
+    'track_02_hd': {
+        'safety_lap_001': False,
+        'safety_lap_002': False,
+        'reverse_lap_001': False
     },
     'track_02': {
-        'safety_lap_001': True,
-        'safety_lap_002': True,
-        'reverse_lap_001': True
+        'safety_lap_001': False,
+        'safety_lap_002': False,
+        'reverse_lap_001': False
     }
 }
 VERBOSE = 1
 VALIDATION_SPLIT = 0.2
 TEST_SIZE = 0.2
-STEERING_CORRECTION = 0.2
+ANGLE_CORRECTION = 0.25
 LEARNING_RATE = 1e-4
 IMAGE_SIZE = (160, 320, 3)
 EPOCHS = 20 # can be quiet big, as we stop early, when model performs good enough
@@ -33,6 +38,8 @@ EARLY_STOPPING_DELTA = 0.0001
 CROPPING_TB = (70, 15)
 CROPPING_LR = (0, 0)
 BATCH_SIZE = 32
+ZERO_ANGLE = 0.02
+DROP_ZERO_ANGLE_PROB = 0.9
 
 ################################
 # DO NOT CHANGE ANYTHING BELOW
@@ -76,6 +83,29 @@ def lambda_read_image(path):
 
 def lambda_read_image_flipped(path):
     return lambda : cv2.flip(read_image(path), 1)
+
+def random_brightness(img, median = 0.8, dev = 0.4, prob=0.1):
+    if (np.random.random() < prob):
+        hsv = cv2.cvtColor(img,cv2.COLOR_RGB2HSV)
+        factor = median + dev * np.random.uniform(-1.0, 1.0)
+        hsv[:,:,2] = hsv[:,:,2]*factor
+        filter = hsv[:,:,2]>255
+        hsv[:,:,2][filter]  = 255
+        img = cv2.cvtColor(hsv,cv2.COLOR_HSV2RGB)
+    return img
+
+def random_shadow(img, prob=0.1):
+    if (np.random.random() < prob):
+        shadow = img.copy()
+        h,w,ch = shadow.shape
+        x1 = np.random.randint(0,int(w*0.4))
+        x2 = np.random.randint(int(w*0.6),w-1)
+        y1 = np.random.randint(0,int(h*0.2))
+        y2 = np.random.randint(int(h*0.7),h-1)
+        img = cv2.rectangle(img,(x1,y1),(x2,y2),(0,0,0),-1)
+        alpha = np.random.uniform(0.6, 0.9)
+        img = cv2.addWeighted(shadow, alpha, img, 1-alpha,0,img)
+    return img
 #
 # Read Drive Log and prepare samples
 #
@@ -91,39 +121,45 @@ for track in DATASETS:
                     center = basepath + '/IMG/' + center.split('/')[-1]
                     left = basepath + '/IMG/' + left.split('/')[-1]
                     right = basepath + '/IMG/' + right.split('/')[-1]
-                    steering = float(line[3])
+                    angle = float(line[3])
                     throttle = float(line[4])
                     brake = float(line[5])
                     speed =  float(line[6])
 
-                    SAMPLES.append({
-                        'lambda_image': lambda_read_image(center), 
-                        'steering': steering, 
-                        'brake': brake,
-                        'speed': speed, 
-                        'throttle': throttle
-                    })
-                    SAMPLES.append({
-                        'lambda_image': lambda_read_image(left), 
-                        'steering': steering + STEERING_CORRECTION, 
-                        'brake': brake,
-                        'speed': speed, 
-                        'throttle': throttle
-                    })
-                    SAMPLES.append({
-                        'lambda_image': lambda_read_image(right), 
-                        'steering': steering - STEERING_CORRECTION, 
-                        'brake': brake,
-                        'speed': speed, 
-                        'throttle': throttle
-                    })
-                    SAMPLES.append({
-                        'lambda_image': lambda_read_image_flipped(center), 
-                        'steering': -steering, 
-                        'brake': brake,
-                        'speed': speed, 
-                        'throttle': throttle
-                    })
+                    add = True
+                    rand = np.random.random()
+                    if -ZERO_ANGLE < angle < ZERO_ANGLE and rand > DROP_ZERO_ANGLE_PROB:
+                        add = False
+
+                    if add:
+                        SAMPLES.append({
+                            'lambda_image': lambda_read_image(center), 
+                            'angle': angle, 
+                            'brake': brake,
+                            'speed': speed, 
+                            'throttle': throttle
+                        })
+                        SAMPLES.append({
+                            'lambda_image': lambda_read_image(left), 
+                            'angle': angle + ANGLE_CORRECTION, 
+                            'brake': brake,
+                            'speed': speed, 
+                            'throttle': throttle
+                        })
+                        SAMPLES.append({
+                            'lambda_image': lambda_read_image(right), 
+                            'angle': angle - ANGLE_CORRECTION, 
+                            'brake': brake,
+                            'speed': speed, 
+                            'throttle': throttle
+                        })
+                        SAMPLES.append({
+                            'lambda_image': lambda_read_image_flipped(center), 
+                            'angle': -angle, 
+                            'brake': brake,
+                            'speed': speed, 
+                            'throttle': throttle
+                        })
 
 print('Number of samples:', len(SAMPLES))
 
@@ -151,9 +187,11 @@ def generator(samples, batch_size=32):
             X, y = [], []
 
             for batch_sample in batch_samples:
-                image, steering = batch_sample['lambda_image'](), batch_sample['steering']
+                image, angle = batch_sample['lambda_image'](), batch_sample['angle']
+                image = random_shadow(image)
+                image = random_brightness(image)
                 X.append(image)
-                y.append(steering)
+                y.append(angle)
 
             X = np.array(X)
             y = np.array(y)
@@ -187,24 +225,8 @@ model.add(Lambda(lambda x: (x / 255.0) - 0.5))
 
 # NVidia architecture
 # https://devblogs.nvidia.com/parallelforall/deep-learning-self-driving-cars/
-# Nvidia(model)
-model.add(BatchNormalization(axis=1, name="Normalise"))
-model.add(Conv2D(24, (3, 3), strides=(2,2), name="Conv1", activation="relu"))
-model.add(MaxPooling2D(name="MaxPool1"))
-model.add(Conv2D(48, (3, 3), strides=(1,1), name="Conv2", activation="relu"))
-model.add(MaxPooling2D(name="MaxPool2"))
-model.add(Conv2D(72, (3, 3), strides=(1,1), name="Conv3", activation="relu"))
-model.add(MaxPooling2D(name="MaxPool3"))
-model.add(Dropout(0.2, name="Dropout1"))
-
-model.add(Flatten(name="Flatten"))
-model.add(Dense(100, activation="relu", name="FC2"))
-model.add(Dropout(0.5, name="Dropout2"))
-model.add(Dense(50, activation="relu", name="FC3"))
-model.add(Dropout(0.2, name="Dropout3"))
-model.add(Dense(10, activation="relu", name="FC4"))
-
-model.add(Dense(1, name="Steering", activation='linear'))
+from network_nvidia import Nvidia
+Nvidia(model)
 
 #
 # NOT IMPLEMENTED

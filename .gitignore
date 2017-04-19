@@ -6,3 +6,4 @@ model-*
 model.h5
 model.cp.h5
 model.json
+__pycache__
