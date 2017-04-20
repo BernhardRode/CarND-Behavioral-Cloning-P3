@@ -11,6 +11,7 @@ DATASETS = {
         'recovery_lap_001': False
     },
     'track_01': {
+        'recovery_lap': True,
         'reverse_lap': True,
         'safety_laps': True,
         'udacity': True
@@ -21,9 +22,8 @@ DATASETS = {
         'reverse_lap_001': False
     },
     'track_02': {
-        'safety_lap_001': False,
-        'safety_lap_002': False,
-        'reverse_lap_001': False
+        'safety_laps': True,
+        'reverse_lap': True
     }
 }
 VERBOSE = 1
@@ -32,7 +32,7 @@ TEST_SIZE = 0.2
 ANGLE_CORRECTION = 0.25
 LEARNING_RATE = 1e-4
 IMAGE_SIZE = (160, 320, 3)
-EPOCHS = 20 # can be quiet big, as we stop early, when model performs good enough
+EPOCHS = 30 # can be quiet big, as we stop early, when model performs good enough
 EARLY_STOPPING_PATIENCE = 1
 EARLY_STOPPING_DELTA = 0.0001
 CROPPING_TB = (70, 15)
