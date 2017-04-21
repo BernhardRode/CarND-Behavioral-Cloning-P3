@@ -11,9 +11,13 @@ DATASETS = {
         'recovery_lap_001': False
     },
     'track_01': {
-        'recovery_lap': True,
+        'recovery_lap': False,
         'reverse_lap': True,
         'safety_laps': True,
+        'sharp_turn': True,
+        'bridge_exit': True,
+        'bridge_exit': True,
+        'bridge_exit': True,
         'udacity': True
     },
     'track_02_hd': {
@@ -29,14 +33,15 @@ DATASETS = {
 VERBOSE = 1
 VALIDATION_SPLIT = 0.2
 TEST_SIZE = 0.2
-ANGLE_CORRECTION = 0.25
+ANGLE_CORRECTION = 0.08
 LEARNING_RATE = 1e-4
 IMAGE_SIZE = (160, 320, 3)
-EPOCHS = 30 # can be quiet big, as we stop early, when model performs good enough
+NVIDIA_SIZE = (66, 200, 3)
+EPOCHS = 2 # can be quiet big, as we stop early, when model performs good enough
 EARLY_STOPPING_PATIENCE = 1
 EARLY_STOPPING_DELTA = 0.0001
-CROPPING_TB = (70, 15)
-CROPPING_LR = (0, 0)
+CROPPING_TB = (80, 14)
+CROPPING_LR = (60, 60)
 BATCH_SIZE = 32
 ZERO_ANGLE = 0.02
 DROP_ZERO_ANGLE_PROB = 0.9
@@ -73,10 +78,11 @@ start = time.time()
 # Setup useful helper functions
 #
 SAMPLES = []
+
 def read_image(path):
     img = cv2.imread(path)
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-    return img
+    img_yuv= cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    return img_yuv
 
 def lambda_read_image(path):
     return lambda : read_image(path)
@@ -84,29 +90,6 @@ def lambda_read_image(path):
 def lambda_read_image_flipped(path):
     return lambda : cv2.flip(read_image(path), 1)
 
-def random_brightness(img, median = 0.8, dev = 0.4, prob=0.1):
-    if (np.random.random() < prob):
-        hsv = cv2.cvtColor(img,cv2.COLOR_RGB2HSV)
-        factor = median + dev * np.random.uniform(-1.0, 1.0)
-        hsv[:,:,2] = hsv[:,:,2]*factor
-        filter = hsv[:,:,2]>255
-        hsv[:,:,2][filter]  = 255
-        img = cv2.cvtColor(hsv,cv2.COLOR_HSV2RGB)
-    return img
-
-def random_shadow(img, prob=0.1):
-    if (np.random.random() < prob):
-        shadow = img.copy()
-        h,w,ch = shadow.shape
-        x1 = np.random.randint(0,int(w*0.4))
-        x2 = np.random.randint(int(w*0.6),w-1)
-        y1 = np.random.randint(0,int(h*0.2))
-        y2 = np.random.randint(int(h*0.7),h-1)
-        img = cv2.rectangle(img,(x1,y1),(x2,y2),(0,0,0),-1)
-        alpha = np.random.uniform(0.6, 0.9)
-        img = cv2.addWeighted(shadow, alpha, img, 1-alpha,0,img)
-    return img
-#
 # Read Drive Log and prepare samples
 #
 for track in DATASETS:
@@ -188,8 +171,6 @@ def generator(samples, batch_size=32):
 
             for batch_sample in batch_samples:
                 image, angle = batch_sample['lambda_image'](), batch_sample['angle']
-                image = random_shadow(image)
-                image = random_brightness(image)
                 X.append(image)
                 y.append(angle)
 
@@ -201,12 +182,12 @@ def generator(samples, batch_size=32):
 #
 # MODEL
 #
+
 model = Sequential()
 # cropping
 model.add(Cropping2D(cropping=(CROPPING_TB, CROPPING_LR), input_shape=IMAGE_SIZE))
 # normalize
 model.add(Lambda(lambda x: (x / 255.0) - 0.5))
-
 #
 # Networks
 #
