@@ -73,17 +73,21 @@ from keras.callbacks import EarlyStopping, Callback
 start = time.time()
 
 #
-# Setup useful helper functions
+# helper functions
 #
 SAMPLES = []
-
+#
+# augmented_brightness
+#
 def augmented_brightness(image):
     augmented_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
     random_bright = .25+np.random.uniform()
     augmented_image[:,:,2] = augmented_image[:,:,2]*random_bright
     augmented_image = cv2.cvtColor(augmented_image,cv2.COLOR_HSV2RGB)
     return augmented_image
-
+#
+# Read image adapt color and augment brightness
+#
 def read_image(path):
     image = cv2.imread(path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -96,7 +100,7 @@ def lambda_read_image(path):
 
 def lambda_read_image_flipped(path):
     return lambda : cv2.flip(read_image(path), 1)
-
+#
 # Read Drive Log and prepare samples
 #
 for track in DATASETS:
