@@ -16,8 +16,6 @@ DATASETS = {
         'safety_laps': True,
         'sharp_turn': True,
         'bridge_exit': True,
-        'bridge_exit': True,
-        'bridge_exit': True,
         'udacity': True
     },
     'track_02_hd': {
@@ -34,14 +32,14 @@ VERBOSE = 1
 VALIDATION_SPLIT = 0.2
 TEST_SIZE = 0.2
 ANGLE_CORRECTION = 0.08
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 0.001
 IMAGE_SIZE = (160, 320, 3)
 NVIDIA_SIZE = (66, 200, 3)
-EPOCHS = 2 # can be quiet big, as we stop early, when model performs good enough
+EPOCHS = 3
 EARLY_STOPPING_PATIENCE = 1
 EARLY_STOPPING_DELTA = 0.0001
-CROPPING_TB = (80, 14)
-CROPPING_LR = (60, 60)
+CROPPING_TB = (50, 20)
+CROPPING_LR = (0, 0)
 BATCH_SIZE = 32
 ZERO_ANGLE = 0.02
 DROP_ZERO_ANGLE_PROB = 0.9
@@ -69,7 +67,7 @@ from keras.layers.pooling import MaxPooling2D
 from keras.layers.normalization import BatchNormalization
 from keras.layers.core import Dense, Flatten, Lambda, Activation, Dropout
 from keras.layers.convolutional import Conv2D, Cropping2D
-from keras.callbacks import EarlyStopping, ModelCheckpoint, Callback
+from keras.callbacks import EarlyStopping, Callback
 
 # set start time
 start = time.time()
@@ -79,10 +77,19 @@ start = time.time()
 #
 SAMPLES = []
 
+def augmented_brightness(image):
+    augmented_image = cv2.cvtColor(image,cv2.COLOR_RGB2HSV)
+    random_bright = .25+np.random.uniform()
+    augmented_image[:,:,2] = augmented_image[:,:,2]*random_bright
+    augmented_image = cv2.cvtColor(augmented_image,cv2.COLOR_HSV2RGB)
+    return augmented_image
+
 def read_image(path):
-    img = cv2.imread(path)
-    img_yuv= cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-    return img_yuv
+    image = cv2.imread(path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = augmented_brightness(image)
+    shape = image.shape
+    return image
 
 def lambda_read_image(path):
     return lambda : read_image(path)
@@ -99,7 +106,6 @@ for track in DATASETS:
             with open(basepath + '/driving_log.csv') as csvfile:
                 reader = csv.reader(csvfile)
                 for line in reader:
-
                     center, left, right, = line[0], line[1], line[2]
                     center = basepath + '/IMG/' + center.split('/')[-1]
                     left = basepath + '/IMG/' + left.split('/')[-1]
@@ -155,7 +161,6 @@ TRAIN_SAMPLES, VALIDATION_SAMPLES = train_test_split(
 )
 print('Number of train samples:', len(TRAIN_SAMPLES))
 print('Number of valid samples:', len(VALIDATION_SAMPLES))
-
 print('#################################################')
 
 def generator(samples, batch_size=32):
@@ -187,11 +192,11 @@ model = Sequential()
 # cropping
 model.add(Cropping2D(cropping=(CROPPING_TB, CROPPING_LR), input_shape=IMAGE_SIZE))
 # normalize
-model.add(Lambda(lambda x: (x / 255.0) - 0.5))
+model.add(Lambda(lambda x: x/127.5 - 1.0))
+
 #
 # Networks
 #
-
 # LeNet architecture
 # from network_lenet import LeNet
 # LeNet(model)
@@ -218,7 +223,7 @@ Nvidia(model)
 
 #
 # COMPILE
-adam = Adam(lr=LEARNING_RATE, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
+adam = Adam(lr=LEARNING_RATE)
 model.compile(optimizer=adam, loss='mse')
 
 #
@@ -232,8 +237,6 @@ validation_steps = int(math.ceil(len(VALIDATION_SAMPLES) / BATCH_SIZE))
 #
 # earlyStopper
 earlyStopper = EarlyStopping(min_delta=EARLY_STOPPING_DELTA, patience=EARLY_STOPPING_PATIENCE, mode='min')
-# Checkpointer
-checkpointer = ModelCheckpoint(filepath="./model.cp.h5", verbose=VERBOSE, save_best_only=True)
 
 class LossHistory(Callback):
     def on_train_begin(self, logs={}):
@@ -260,7 +263,7 @@ history_obj = model.fit_generator(
     validation_steps = validation_steps,
     epochs = EPOCHS,
     verbose=VERBOSE,
-    callbacks=[history, earlyStopper, checkpointer]
+    callbacks=[history, earlyStopper]
 )
 
 #
