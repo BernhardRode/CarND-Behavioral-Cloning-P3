@@ -111,9 +111,9 @@ All the samples create a lamda function, which will when executed (in the genera
 
 When all the samples have been created, I split the samples up into train and validation samples with a test_size of 20%.
 
-Number of samples: 69824
-Number of train samples: 55859
-Number of valid samples: 13965
+* Number of samples: 69824
+* Number of train samples: 55859
+* Number of valid samples: 13965
 
 ##### Image processing
 
