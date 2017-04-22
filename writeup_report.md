@@ -79,7 +79,6 @@ When my application starts, it first iterate sover the configured datasets reads
 Because we have way more straigt driving then turn driving, i've created a simple sampling algorithm (model.py 122-127).
 When the recorded steering angle is between -0.02 and +0.02 (ZERO_ANGLE), I drop roundabout 90% (DROP_ZERO_ANGLE_PROB = 0.9) of the samples. This helps generalizing the model better.
 
-
 [image2]: ./writeup/figure_1.png "Histogram without drop"
 !["Histogram without drop"][image2]
 
@@ -93,6 +92,20 @@ If a sample should be added, I create four different samples out of it.
 * left image with steering correction of +0.08
 * right image with steering correction of -0.08
 * flipped center image with -steering
+
+[image4]: ./writeup/center.jpg "Original"
+[image5]: ./writeup/center_image.png "Unmodified"
+[image6]: ./writeup/flipped_image.png "Flipped"
+[image7]: ./writeup/augmented_brightness_image_1.png "Augemented Brightness 1"
+[image8]: ./writeup/augmented_brightness_image_2.png "Augemented Brightness 2"
+[image9]: ./writeup/augmented_brightness_image_3.png "Augemented Brightness 3"
+
+!["Original"][image4]
+!["Unmodified"][image5]
+!["Flipped"][image6]
+!["Augemented Brightness 1"][image7]
+!["Augemented Brightness 2"][image8]
+!["Augemented Brightness 3"][image9]
 
 All the samples create a lamda function, which will when executed (in the generator later on) read and process the image.
 
