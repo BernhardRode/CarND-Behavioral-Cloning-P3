@@ -13,6 +13,7 @@ The goals / steps of this project are the following:
 
 My project includes the following files:
 * model.py containing the script to create and train the model
+* network_nvidia.py definition of the nvidia based model
 * drive.py for driving the car in autonomous mode
 * model.h5 containing a trained convolution neural network 
 * writeup_report.md or writeup_report.pdf summarizing the results
@@ -25,85 +26,99 @@ python drive.py model.h5
 
 #### 3. Submission code is usable and readable
 
-The model.py file contains the code for training and saving the convolution neural network. The file shows the pipeline I used for training and validating the model, and it contains comments to explain how the code works.
-
-### Model Architecture and Training Strategy
-
-#### 1. An appropriate model architecture has been employed
-
-My model is based on the NVIDIA paper and is defined in network_vidia.py to reduce overfitting, i've added two 50% dropout layers (line 20 & 23).
-
-(NVIDIA Paper)[https://arxiv.org/pdf/1604.07316.pdf]
-
-[image1]: ./writeup/network_nvidia.png "NVIDIA Model"
-!["NVIDIA Model"][image1]
-
-#### 2. Attempts to reduce overfitting in the model
-
-The model contains dropout layers in order to reduce overfitting (model.py lines 21). 
-
-The model was trained and validated on different data sets to ensure that the model was not overfitting (code line 10-16). The model was tested by running it through the simulator and ensuring that the vehicle could stay on the track.
-
-#### 3. Model parameter tuning
-
-The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 25).
-
-#### 4. Appropriate training data
-
-Training data was chosen to keep the vehicle driving on the road. I used a combination of center lane driving, recovering from the left and right sides of the road ... 
-
-For details about how I created the training data, see the next section. 
+The model.py & network_nvidia.py files contain the code for training and saving the convolution neural network. The files show the pipeline I used for training and validating the model, and they contain comments to explain how the code works.
 
 ### Model Architecture and Training Strategy
 
 #### 1. Solution Design Approach
 
-The overall strategy for deriving a model architecture was to ...
+The overall strategy for deriving a model architecture was to follow the NVIDIA paper and start building upon it.
 
-My first step was to use a convolution neural network model similar to the ... I thought this model might be appropriate because ...
+[https://arxiv.org/pdf/1604.07316.pdf](NVIDIA Paper)
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set. I found that my first model had a low mean squared error on the training set but a high mean squared error on the validation set. This implied that the model was overfitting. 
+[image1]: ./writeup/network_nvidia.png "NVIDIA Model"
+!["NVIDIA Model"][image1]
 
-To combat the overfitting, I modified the model so that ...
-
-Then I ... 
-
-The final step was to run the simulator to see how well the car was driving around track one. There were a few spots where the vehicle fell off the track... to improve the driving behavior in these cases, I ....
-
-At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
+During my research I tried out different model implementations (network_*.py), but the NVIDIA thing was the one, I felt most comfortable with (model.py lines 200-225).
 
 #### 2. Final Model Architecture
 
-The final model architecture (model.py lines 18-24) consisted of a convolution neural network with the following layers and layer sizes ...
+I'm using a sequential keras model (model.py line 194). Before the samples go to the "real" network, I apply some cropping (get rid of sky and dashboard) and normalizing (model.py lines 195-198).
 
-Here is a visualization of the architecture (note: visualizing the architecture is optional according to the project rubric)
+My model is based on the NVIDIA paper and is defined in network_vidia.py it consistens basically of the following layers:
 
-![alt text][image1]
+* 5 Conv2D Layers with RELU activation
+* 1 Flatten Layer
+* 4 Dense Layers
+* 2 Dropout Layers
+
+The model contains dropout layers in order to reduce overfitting (network_nvidia.py 20 & 23). 
+The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 231).
 
 #### 3. Creation of the Training Set & Training Process
 
-To capture good driving behavior, I first recorded two laps on track one using center lane driving. Here is an example image of center lane driving:
+At first i tried creating data with maximum image details in the simulator, that did not work out so well. These are the *_hd datasets. The other datasets have been created with "fastest" settings in the simulator.
 
-![alt text][image2]
+At the end, I've ended up using several datasources (model.py lines 5-30), they can be switched on and of easily by turning the boolean flags around.
 
-I then recorded the vehicle recovering from the left side and right sides of the road back to center so that the vehicle would learn to .... These images show what a recovery looks like starting from ... :
+At the beginning, I started using the udacity set and added new sets when needed. I've ended up using 7 different datasets. 
 
-![alt text][image3]
-![alt text][image4]
-![alt text][image5]
+* track01 - udacity - the data provided by udacity
+* track01 - safety_laps - driving three laps in a row 
+* track01 - bridge_exits - 5 times exiting the bridge correctly
+* track01 - sharp_turns - different sharp turn drives
+* track02 - safety_lap - driving two laps in a row 
+* track02 - reverse_lap - driving one lap in reverse direction
 
-Then I repeated this process on track two in order to get more data points.
+At the end of the process, the vehicle is able to drive autonomously around the track without leaving the road.
 
-To augment the data sat, I also flipped images and angles thinking that this would ... For example, here is an image that has then been flipped:
+#### Sample Preparation
 
-![alt text][image6]
-![alt text][image7]
+When my application starts, it first iterate sover the configured datasets reads their data (model.py line 106-120).
 
-Etc ....
-
-After the collection process, I had X number of data points. I then preprocessed this data by ...
+Because we have way more straigt driving then turn driving, i've created a simple sampling algorithm (model.py 122-127).
+When the recorded steering angle is between -0.02 and +0.02 (ZERO_ANGLE), I drop roundabout 90% (DROP_ZERO_ANGLE_PROB = 0.9) of the samples. This helps generalizing the model better.
 
 
-I finally randomly shuffled the data set and put Y% of the data into a validation set. 
+[image2]: ./writeup/figure_1.png "Histogram without drop"
+!["Histogram without drop"][image2]
 
-I used this training data for training the model. The validation set helped determine if the model was over or under fitting. The ideal number of epochs was Z as evidenced by ... I used an adam optimizer so that manually training the learning rate wasn't necessary.
+
+[image3]: ./writeup/figure_2.png "Histogram with drop"
+!["Histogram with drop"][image3]
+
+If a sample should be added, I create four different samples out of it.
+
+* center image with no steering correction
+* left image with steering correction of +0.08
+* right image with steering correction of -0.08
+* flipped center image with -steering
+
+All the samples create a lamda function, which will when executed (in the generator later on) read and process the image.
+
+When all the samples have been created, I split the samples up into train and validation samples with a test_size of 20%.
+
+Number of samples: 69824
+Number of train samples: 55859
+Number of valid samples: 13965
+
+##### Image processing
+
+The lamda functions lambda_read_image & lambda_read_image_flipped (model.py 98-101) are being used to read in images from the harddrive and add some basic image pre processing.
+
+* lambda_read_image - just reads the image with image_read
+* lambda_read_image_flipped - reads the image with image_read and flips it around
+
+The image_read function takes a filename and reads that image into memory. Then it converts the color space and adds random brightness, to prevent overfitting later on.
+
+I also thought about adding some random noise, but at the end it wasn't needed for this project.
+
+#### Training Process
+
+The training process is using a generator (model.py 169-189) it batches image loading in batches of 32 samples.
+
+It shuffles the batch of samples. Then it itereates over the batch of samples and calls the lamda function to read each image.
+
+I've got an EarlyStopper (model.py 242-251) callback implemented, as I started to use with more then 30 epochs per training.
+I'm not using it any more, because from what i've seen training of 3 epochs is totally sufficent for this project to work fine.
+
