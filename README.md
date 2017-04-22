@@ -2,7 +2,7 @@
 
 This is my result for the Udacity SDCE Nanodegree project 3 - Behavioral Cloning.
 
-The whole solution is described in the [writeup_report](./writeup_report).
+The whole solution is described in the [writeup_report](./writeup_report.md).
 
 ## 3rd Person view
 
